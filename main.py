@@ -14,7 +14,11 @@ from datetime import datetime, date
 # ══════════════════════════════════════
 #  مسار ملف الحفظ
 # ══════════════════════════════════════
-DATA_FILE = os.path.join(os.path.expanduser("~"), "hasiba_data.json")
+def get_data_file(app_dir=None):
+    if app_dir:
+        os.makedirs(app_dir, exist_ok=True)
+        return os.path.join(app_dir, "hasiba_data.json")
+    return os.path.join(os.path.expanduser("~"), "hasiba_data.json")
 
 DEFAULT_SETTINGS = {
     "nafaqat_default": 3,
@@ -56,10 +60,10 @@ DEFAULT_SETTINGS = {
 }
 
 
-def load_data():
-    if os.path.exists(DATA_FILE):
+def load_data(data_file):
+    if os.path.exists(data_file):
         try:
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
+            with open(data_file, "r", encoding="utf-8") as f:
                 saved = json.load(f)
             merged = DEFAULT_SETTINGS.copy()
             merged.update(saved)
@@ -69,9 +73,9 @@ def load_data():
     return DEFAULT_SETTINGS.copy()
 
 
-def save_data(data):
+def save_data(data, data_file):
     try:
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
+        with open(data_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as ex:
         print(f"خطأ في الحفظ: {ex}")
@@ -212,7 +216,14 @@ def main(page: ft.Page):
     page.window_width = 420
     page.window_height = 820
 
-    SETTINGS = load_data()
+    # تحديد مسار الحفظ - يعمل على أندرويد وLinux
+    try:
+        app_dir = page.app_data_dir or os.path.expanduser("~")
+    except Exception:
+        app_dir = os.path.expanduser("~")
+    DATA_FILE = get_data_file(app_dir)
+
+    SETTINGS = load_data(DATA_FILE)
 
     GREEN      = SETTINGS["color_green"]
     BLUE       = SETTINGS["color_blue"]
@@ -532,7 +543,7 @@ def main(page: ft.Page):
                     def make_delete(i):
                         def do_delete(e):
                             SETTINGS["mihna_list"].pop(i)
-                            save_data(SETTINGS)
+                            save_data(SETTINGS, DATA_FILE)
                             refresh_list()
                             page.update()
                         return do_delete
@@ -589,7 +600,7 @@ def main(page: ft.Page):
                     add_msg.value = "✅ تم إضافة المهنة بنجاح"
 
                 add_msg.color = "green"
-                save_data(SETTINGS)
+                save_data(SETTINGS, DATA_FILE)
                 ism_f.value = ramz_f.value = ayam_f.value = nisba_f.value = ""
                 refresh_list()
                 page.update()
@@ -1034,7 +1045,7 @@ def main(page: ft.Page):
             def make_delete(i):
                 def do_delete(e):
                     SETTINGS[brackets_key].pop(i)
-                    save_data(SETTINGS)
+                    save_data(SETTINGS, DATA_FILE)
                     _brackets_editor(brackets_key, exempt_key, title, color, back_fn)
                 return do_delete
 
@@ -1068,7 +1079,7 @@ def main(page: ft.Page):
                     new_brackets.append([lower, upper, nisba])
                 SETTINGS[exempt_key]    = new_exempt
                 SETTINGS[brackets_key] = new_brackets
-                save_data(SETTINGS)
+                save_data(SETTINGS, DATA_FILE)
                 save_msg.value = "✅ تم حفظ الشرائح بنجاح"
                 save_msg.color = "green"
             except Exception as ex:
@@ -1078,7 +1089,7 @@ def main(page: ft.Page):
 
         def add_bracket(e):
             SETTINGS[brackets_key].append([0, None, 0.10])
-            save_data(SETTINGS)
+            save_data(SETTINGS, DATA_FILE)
             _brackets_editor(brackets_key, exempt_key, title, color, back_fn)
 
         page.add(ft.Column(
@@ -1121,7 +1132,7 @@ def main(page: ft.Page):
                 SETTINGS["nafaqat_default"] = float(nafaqat_f.value or 3)
                 SETTINGS["idara_default"]   = float(idara_f.value   or 10)
                 SETTINGS["rawatib_default"] = float(rawatib_f.value or 10)
-                save_data(SETTINGS)
+                save_data(SETTINGS, DATA_FILE)
                 save_msg.value = "✅ تم الحفظ"
                 save_msg.color = "green"
             except Exception as ex:
@@ -1201,7 +1212,7 @@ def main(page: ft.Page):
         def save(e):
             try:
                 SETTINGS["rasm_idara_pct"] = float(rasm_f.value or 10) / 100
-                save_data(SETTINGS)
+                save_data(SETTINGS, DATA_FILE)
                 save_msg.value = "✅ تم الحفظ"
                 save_msg.color = "green"
             except Exception as ex:
@@ -1213,7 +1224,7 @@ def main(page: ft.Page):
             for key, val in DEFAULT_SETTINGS.items():
                 if key != "mihna_list":
                     SETTINGS[key] = val
-            save_data(SETTINGS)
+            save_data(SETTINGS, DATA_FILE)
             save_msg.value = "✅ تم إعادة التعيين للقيم الافتراضية"
             save_msg.color = "orange"
             page.update()
