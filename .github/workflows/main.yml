@@ -1,108 +1,50 @@
 name: Build APK
+
 on:
   push:
     branches: [ main ]
 
-env:
-  # إصدار NDK الذي يطلبه Flutter/Gradle فعلياً (كما ظهر في سجل الفشل:
-  # "Preferred NDK version is 27.0.12077973"). تثبيته يدوياً ومُخزَّناً
-  # مؤقتاً يمنع محاولة Gradle تحميله من الصفر في كل تشغيل، وهو ما كان
-  # يفشل أو يستغرق وقتاً طويلاً جداً بسبب حجمه الكبير وعدم استقرار
-  # اتصال sdkmanager على بعض runners GitHub.
-  NDK_VERSION: "27.0.12077973"
-  ANDROID_CMDLINE_TOOLS_VERSION: "11076708"
-
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Set up Java
+      - name: Install Flet CLI
+        run: |
+          python -m pip install --upgrade pip
+          pip install flet
+
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '17'
 
-      - uses: subosito/flutter-action@v2
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.4'
-          channel: stable
+          channel: 'stable'
 
-      - name: Install flet
-        run: pip install flet==0.82.2
-
-      # ── تثبيت Android SDK + NDK بشكل صريح ──────────────────────────
-      # نحدد ANDROID_SDK_ROOT بمسار ثابت لنتمكن من تخزينه مؤقتاً
-      # (caching) بين التشغيلات المختلفة لهذا الووركفلو.
-      - name: Set Android SDK path
-        run: echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
-
-      # تخزين مؤقت لمجلد Android SDK كاملاً (يشمل platform-tools،
-      # cmdline-tools، وأهم شيء: NDK نفسه بحجمه الكبير). المفتاح يعتمد
-      # على إصدار NDK المطلوب، فإذا غيّرت NDK_VERSION مستقبلاً سيُعاد
-      # التحميل تلقائياً بدل استخدام نسخة قديمة غير متوافقة.
-      - name: Cache Android SDK & NDK
-        id: cache-android-sdk
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.ANDROID_SDK_ROOT }}
-          key: android-sdk-ndk-${{ env.NDK_VERSION }}-${{ runner.os }}
-
-      - name: Install Android SDK command-line tools
-        if: steps.cache-android-sdk.outputs.cache-hit != 'true'
+      - name: Install Android NDK (27.0.12077973)
         run: |
-          set -e
-          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
-          cd "$ANDROID_SDK_ROOT/cmdline-tools"
-          curl -fL -o cmdline-tools.zip \
-            "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip"
-          unzip -q cmdline-tools.zip
-          rm cmdline-tools.zip
-          mv cmdline-tools latest
+          # قبول التراخيص باستخدام المسار الصحيح والمباشر لـ sdkmanager في جيت هوب
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+          # تثبيت إصدار الـ NDK المطلوب لـ Gradle لتجنب خطأ التفضيل
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;27.0.12077973"
 
-      - name: Install platform-tools, platform & NDK via sdkmanager
-        if: steps.cache-android-sdk.outputs.cache-hit != 'true'
-        run: |
-          set -e
-          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKMANAGER" --licenses > /dev/null || true
-          "$SDKMANAGER" \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0" \
-            "ndk;${NDK_VERSION}"
+      - name: Build APK using Flet
+        run: python -m flet build apk --verbose
 
-      - name: Export Android env vars
-        run: |
-          {
-            echo "ANDROID_HOME=$ANDROID_SDK_ROOT"
-            echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/$NDK_VERSION"
-            echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-            echo "$ANDROID_SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
-          } >> "$GITHUB_ENV"
-
-      # ── تخزين مؤقت منفصل لـ Gradle (يسرّع البناء نفسه، لا علاقة له
-      # بمشكلة NDK، لكنه يقلّل زمن التنفيذ الكلي بشكل ملحوظ) ──────────
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
-
-      - name: Build APK
-        run: flet build apk --verbose
-
-      - name: Upload APK
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: hasiba-apk
+          name: hasiba-app-apk
           path: build/apk/*.apk
