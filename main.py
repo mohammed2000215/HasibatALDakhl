@@ -191,52 +191,19 @@ def _get_data_file():
 #  دوال الحساب الآمنة
 # ══════════════════════════════════════
 def safe_ceil(val):
-    """
-    التقريب لأعلى الآمن، مع حماية من أخطاء دقة الفاصلة العائمة.
-
-    عمليات الضرب مثل 150000 * 0.14 قد تُنتج فعلياً 21000.000000000004
-    بسبب طبيعة تمثيل الأعداد العشرية بالثنائي في الحاسوب (مثل 0.14 التي
-    لا يمكن تمثيلها بدقة تامة)، فلو طبّقنا ceil مباشرة على هذه القيمة
-    سنحصل خطأً على 21001 بدل 21000 الصحيحة. لتفادي هذا، نُقرّب القيمة
-    أولاً لـ 6 منازل عشرية (وهي دقة تتجاوز أي حاجة مالية فعلية بمراحل)
-    قبل تطبيق ceil، فتُمحى هذه الأخطاء الدقيقة جداً دون التأثير على أي
-    تقريب فعلي مطلوب (كالفرق بين 9999.9 و 10000).
-    """
     try:
         if not math.isfinite(val):
             return 0
-        return math.ceil(round(val, 6))
+        return math.ceil(val)
     except (TypeError, OverflowError):
         return 0
 
 
 def calc_maqtou3_tax(ribh_safi, brackets, exempt):
-    """
-    يحسب ضريبة الدخل المقطوع على الشرائح.
-
-    منطق طرح الإعفاء (exempt):
-      لكل شريحة [lower, upper]، نحسب "الحد الأدنى الفعلي" بعد الإعفاء:
-          effective_lower = max(lower, exempt)
-      أي أن الإعفاء "يرفع" تلقائياً بداية أي شريحة يقع الإعفاء داخلها أو
-      قبلها، تاركاً عرض الشرائح اللاحقة (التي يقع exempt قبل بدايتها)
-      دون أي تغيير. هذا يطابق تماماً المنطق الضريبي الصحيح: "أعفِ أول
-      N ليرة من الوعاء، واحسب الباقي حسب شرائحه كما هي" - وهو يعمل
-      بشكل صحيح وآمن بغض النظر عن موضع exempt بالنسبة لحدود الشرائح
-      (حتى إذا تجاوز exempt نهاية الشريحة الأولى أو الثانية، فستُستثنى
-      هذه الشرائح بالكامل تلقائياً دون فقدان أي جزء من الوعاء الخاضع).
-
-    التقريب لأعلى (safe_ceil) يُطبَّق مرة واحدة فقط على ضريبة كل شريحة،
-    وهي محصّنة ضد أخطاء دقة الفاصلة العائمة (انظر تعليق safe_ceil).
-    """
     tafaseel    = []
     dariba_klia = 0
     if not brackets or ribh_safi <= 0:
         return tafaseel, dariba_klia
-
-    exempt = max(0.0, float(exempt))
-    if ribh_safi <= exempt:
-        return tafaseel, dariba_klia
-
     for bracket in brackets:
         try:
             lower     = float(bracket[0])
@@ -246,14 +213,14 @@ def calc_maqtou3_tax(ribh_safi, brackets, exempt):
                 continue
             if ribh_safi <= lower:
                 break
-            wia3 = min(ribh_safi, upper_val) - lower   # عرض الشريحة الخام (بلا إعفاء) - للعرض فقط
+            wia3 = min(ribh_safi, upper_val) - lower
             if wia3 <= 0:
                 continue
-            effective_lower = max(lower, exempt)
-            wia3_taxable = min(ribh_safi, upper_val) - effective_lower
-            if wia3_taxable <= 0:
-                continue
-            sh_d = safe_ceil(wia3_taxable * nisba)
+            if lower <= 1:
+                wia3_taxable = max(0, min(ribh_safi, upper_val) - exempt)
+            else:
+                wia3_taxable = wia3
+            sh_d = safe_ceil(round(wia3_taxable * nisba, 8)) if wia3_taxable > 0 else 0
             dariba_klia += sh_d
             tafaseel.append({
                 "pct": nisba * 100, "lower": lower, "upper": upper_val,
@@ -264,28 +231,11 @@ def calc_maqtou3_tax(ribh_safi, brackets, exempt):
     return tafaseel, dariba_klia
 
 
-def calc_arbah_brackets(mablagh, brackets, exempt=0):
-    """
-    يحسب ضريبة الأرباح الحقيقية على الشرائح، بنفس الصيغة العامة المستخدمة
-    في calc_maqtou3_tax تماماً (effective_lower = max(lower, exempt)).
-
-    ملاحظة تصميمية: في الإعدادات الافتراضية لهذا التطبيق، حد الإعفاء
-    (مثل 30,000 أو 3,000,000) يساوي تماماً lower الشريحة الأولى، فتكون
-    effective_lower = lower في هذه الحالة الشائعة (لأن max(lower,exempt)
-    = lower عندما exempt == lower)، فتُعطي نفس نتيجة الكود الأصلي تماماً.
-    لكن الصيغة هنا تبقى صحيحة أيضاً إذا غيّر المستخدم حد الإعفاء من شاشة
-    الإعدادات دون تحديث الشريحة الأولى تبعاً له - وهي ثغرة كانت موجودة
-    في الكود الأصلي الذي اعتمد ضمنياً على هذا التطابق فقط.
-    """
+def calc_arbah_brackets(mablagh, brackets):
     tafaseel    = []
     dariba_klia = 0
     if not brackets or mablagh <= 0:
         return tafaseel, dariba_klia
-
-    exempt = max(0.0, float(exempt))
-    if mablagh <= exempt:
-        return tafaseel, dariba_klia
-
     for bracket in brackets:
         try:
             lower     = float(bracket[0])
@@ -295,18 +245,14 @@ def calc_arbah_brackets(mablagh, brackets, exempt=0):
                 continue
             if mablagh <= lower:
                 break
-            wia3 = min(mablagh, upper_val) - lower   # عرض الشريحة الخام - للعرض فقط
+            wia3 = min(mablagh, upper_val) - lower
             if wia3 <= 0:
                 continue
-            effective_lower = max(lower, exempt)
-            wia3_taxable = min(mablagh, upper_val) - effective_lower
-            if wia3_taxable <= 0:
-                continue
-            sh_d = safe_ceil(wia3_taxable * nisba)
+            sh_d = safe_ceil(round(wia3 * nisba, 8))
             dariba_klia += sh_d
             tafaseel.append({
                 "pct": nisba * 100, "lower": lower, "upper": upper_val,
-                "wia3": wia3_taxable, "dariba": sh_d,
+                "wia3": wia3, "dariba": sh_d,
             })
         except (TypeError, ValueError, IndexError):
             continue
@@ -317,12 +263,10 @@ def calc_arbah_brackets(mablagh, brackets, exempt=0):
 #  دوال UI مساعدة حديثة
 # ══════════════════════════════════════
 def result_row(label, value, size=15):
-    # نستخدم safe_ceil بدل int() لأن int() تقطع الكسر العشري نحو الصفر
-    # (مثلاً 30000.7 → 30000)، بينما المعيار المعتمد في كل الملف هو
-    # التقريب لأعلى. توحيد هذا هنا يضمن أن كل القيم المعروضة في التطبيق
-    # (التي قد تُمرَّر كأعداد صحيحة بالفعل أو كقيم float من الإعدادات
-    # مباشرة) تُعامل بنفس المعيار دون أي استثناء خفي.
-    val_int = safe_ceil(value) if isinstance(value, (int, float)) else 0
+    try:
+        val_int = int(value)
+    except (TypeError, ValueError, OverflowError):
+        val_int = 0
     return ft.Row([
         ft.Text(label, size=size - 1, color=None),
         ft.Text(f"{val_int:,}", size=size, weight="bold", color=None),
@@ -331,7 +275,10 @@ def result_row(label, value, size=15):
 
 def result_row_white(label, value, size=15):
     """نسخة بيضاء لبطاقات ملونة"""
-    val_int = safe_ceil(value) if isinstance(value, (int, float)) else 0
+    try:
+        val_int = int(value)
+    except (TypeError, ValueError, OverflowError):
+        val_int = 0
     return ft.Row([
         ft.Text(label, size=size - 1, color="#ffffffcc"),
         ft.Text(f"{val_int:,}", size=size, weight="bold", color="white"),
@@ -767,11 +714,6 @@ def main(page: ft.Page):
             ip_r = _sanitize_float(idara_f.value,   SETTINGS["idara_default"],   0, 100) / 100
             rp_r = _sanitize_float(rawatib_f.value, SETTINGS["rawatib_default"], 0, 100) / 100
 
-            # الدخل المقطوع يُقرَّب أولاً ليكون "الأساس" الموحّد المعروض
-            # والمستخدم في الحساب معاً (رقم صحيح بالليرة)، ثم تُحسب
-            # النفقات والإدارة والرواتب كنسب من هذا الأساس بالذات - بحيث
-            # لا يظهر تضارب بين "الدخل المقطوع" المعروض والقيمة التي
-            # حُسبت منها باقي البنود فعلياً.
             d1 = safe_ceil(val)
             n1 = safe_ceil(d1 * np_r)
             i1 = safe_ceil(d1 * ip_r)
@@ -807,9 +749,7 @@ def main(page: ft.Page):
                     mult = max(1, min(5, mult))
                 except (TypeError, ValueError):
                     mult = 1
-                # d2 من d1 المقرَّب أصلاً، فلا حاجة لتقريب إضافي هنا
-                # (الضرب في عدد صحيح mult لا يغيّر طبيعة القيمة).
-                d2 = d1 * mult
+                d2 = safe_ceil(d1 * mult)
                 n2 = safe_ceil(d2 * np_r)
                 i2 = safe_ceil(d2 * ip_r)
                 r2 = safe_ceil(d2 * rp_r)
@@ -1045,24 +985,16 @@ def main(page: ft.Page):
                     page.update()
                     return
 
-                # الدخل السنوي والربح الصافي يُحسبان بدقة float كاملة دون
-                # تقريب وسيط؛ التقريب لأعلى يحدث فقط على القيم المعروضة
-                # وعلى الوعاء النهائي المُمرَّر لدالة حساب الضريبة، بحيث لا
-                # يتراكم خطأ التقريب عبر خطوتين متتاليتين (يومي → سنوي → ربح).
-                dakhl_sanawi_raw = daily * ayam
-                ribh_safi_raw    = dakhl_sanawi_raw * nisba_ribh
-                dakhl_sanawi     = safe_ceil(dakhl_sanawi_raw)
-                ribh_safi        = safe_ceil(ribh_safi_raw)
+                dakhl_sanawi = safe_ceil(daily * ayam)
+                ribh_safi    = safe_ceil(dakhl_sanawi * nisba_ribh)
                 exempt       = SETTINGS["maqtou3_exempt"]
                 brackets     = SETTINGS["maqtou3_brackets"]
                 tafaseel, dariba = calc_maqtou3_tax(ribh_safi, brackets, exempt)
 
                 results_col.controls.clear()
 
-                # الربح الخاضع للضريبة المعروض هنا يطابق تماماً ما تحسبه
-                # calc_maqtou3_tax داخلياً (طرح كامل حد الإعفاء من إجمالي
-                # الربح الصافي)، فلا يظهر تضارب بين الملخص وتفصيل الشرائح.
-                ribh_khadi3 = max(0, safe_ceil(ribh_safi - exempt))
+                # بطاقة الملخص
+                ribh_khadi3 = max(0, ribh_safi - int(exempt))
                 results_col.controls.append(make_result_card(ft.Column([
                     ft.Row([
                         ft.Icon(ft.Icons.SUMMARIZE_OUTLINED,
@@ -1075,7 +1007,7 @@ def main(page: ft.Page):
                     result_row("أيام العمل السنوي",          ayam),
                     result_row("الدخل السنوي الإجمالي",      dakhl_sanawi),
                     result_row(f"الربح الصافي ({m['nisba']}%)", ribh_safi),
-                    result_row("الحد المعفى",                exempt),
+                    result_row("الحد المعفى",                int(exempt)),
                     ft.Divider(height=8),
                     ft.Container(
                         content=ft.Row([
@@ -1114,7 +1046,7 @@ def main(page: ft.Page):
                                 ),
                                 ft.Row([
                                     ft.Text("الوعاء الخاضع:", size=12),
-                                    ft.Text(f"{safe_ceil(sh['wia3_taxable']):,}",
+                                    ft.Text(f"{int(sh['wia3_taxable']):,}",
                                             size=13, weight="bold"),
                                     ft.Container(expand=True),
                                     ft.Text("الضريبة:", size=12),
@@ -1496,13 +1428,8 @@ def main(page: ft.Page):
                 rasm_pct  = _sanitize_float(SETTINGS.get("rea3_rasm_pct",  10), 10, 0.001, 100) / 100
                 idara_pct = _sanitize_float(SETTINGS.get("rea3_idara_pct", 10), 10, 0.001, 100) / 100
 
-                # كل القيم الوسيطة (faida, rasm, idara) تُحسب بدقة float
-                # كاملة دون أي تقريب وسيط. التقريب لأعلى يحدث مرة واحدة
-                # فقط، داخل دالة العرض v()، بحيث تكون "الفائدة + الرسم +
-                # رسم الإدارة" المعروضة = "المجموع الكلي" المعروض دائماً،
-                # دون أي فرق ناتج عن تقريب كل بند بمعزل عن الآخر.
                 faida = qima * faida_pct
-                rasm  = faida * rasm_pct
+                rasm  = safe_ceil(faida * rasm_pct)
                 div   = 100 if omla == "new" else 1
 
                 def v(x):
@@ -1515,16 +1442,8 @@ def main(page: ft.Page):
                 results_col.controls.clear()
 
                 if "1year" in dur_seg.selected:
-                    idara = rasm * idara_pct
-
-                    # كل بند يُقرَّب أولاً للعرض، والمجموع الكلي = جمع
-                    # هذه البنود المقرَّبة بالذات (لا تقريب المجموع الخام
-                    # بشكل منفصل)، فيضمن تطابقاً بصرياً تاماً بين "الفائدة
-                    # + الرسم + رسم الإدارة" و"المجموع الكلي" المعروضين.
-                    faida_disp = v(faida)
-                    rasm_disp  = v(rasm)
-                    idara_disp = v(idara)
-                    total = faida_disp + rasm_disp + idara_disp
+                    idara = safe_ceil(rasm * idara_pct)
+                    total = v(safe_ceil(rasm + idara))
 
                     rows = [
                         ft.Row([
@@ -1541,9 +1460,9 @@ def main(page: ft.Page):
                         ),
                         ft.Divider(height=12),
                         result_row("قيمة السند",         safe_ceil(qima_raw)),
-                        result_row(f"الفائدة ({int(SETTINGS.get('rea3_faida_pct',10))}%)", faida_disp),
-                        result_row(f"الرسم ({int(SETTINGS.get('rea3_rasm_pct',10))}%)",    rasm_disp),
-                        result_row(f"رسم الإدارة ({int(SETTINGS.get('rea3_idara_pct',10))}%)", idara_disp),
+                        result_row(f"الفائدة ({int(SETTINGS.get('rea3_faida_pct',10))}%)", v(safe_ceil(faida))),
+                        result_row(f"الرسم ({int(SETTINGS.get('rea3_rasm_pct',10))}%)",    v(rasm)),
+                        result_row(f"رسم الإدارة ({int(SETTINGS.get('rea3_idara_pct',10))}%)", v(idara)),
                         ft.Divider(height=12),
                         ft.Row([
                             ft.Text("المجموع الكلي", weight="bold", size=15),
@@ -1578,24 +1497,12 @@ def main(page: ft.Page):
                     sana   = delta // 365
                     ashhur = (delta % 365) // 30
                     ayam   = (delta % 365) % 30
-                    # rasm لم يُقرَّب أعلاه، فيُضرب هنا بدقة float كاملة
-                    # بدون تراكم أي خطأ تقريب من خطوة سابقة.
                     rs     = rasm * sana
-                    ra     = (rasm * ashhur) / 12  if ashhur > 0 else 0
-                    rd     = (rasm * ayam)   / 365 if ayam   > 0 else 0
+                    ra     = safe_ceil((rasm * ashhur) / 12)  if ashhur > 0 else 0
+                    rd     = safe_ceil((rasm * ayam)   / 365) if ayam   > 0 else 0
                     tr     = rs + ra + rd
-                    idara  = tr * idara_pct
-
-                    # نفس مبدأ التطابق البصري: المجموع = جمع البنود
-                    # المقرَّبة المعروضة فعلياً (رسم السنوات + الأشهر +
-                    # الأيام + رسم الإدارة)، لا تقريب مجموع خام منفصل.
-                    rs_disp    = v(rs)
-                    ra_disp    = v(ra)
-                    rd_disp    = v(rd)
-                    tr_disp    = rs_disp + ra_disp + rd_disp
-                    idara_disp = v(idara)
-                    faida_disp = v(faida)
-                    total      = tr_disp + idara_disp
+                    idara  = safe_ceil(tr * idara_pct)
+                    total  = v(safe_ceil(tr + idara))
 
                     rows = [
                         ft.Row([
@@ -1612,7 +1519,7 @@ def main(page: ft.Page):
                         ),
                         ft.Divider(height=12),
                         result_row("قيمة السند", safe_ceil(qima_raw)),
-                        result_row(f"الفائدة ({int(SETTINGS.get('rea3_faida_pct',10))}%)", faida_disp),
+                        result_row(f"الفائدة ({int(SETTINGS.get('rea3_faida_pct',10))}%)", v(safe_ceil(faida))),
                         ft.Container(
                             content=ft.Text(
                                 f"المدة: {sana} سنة  /  {ashhur} شهر  /  {ayam} يوم",
@@ -1622,11 +1529,11 @@ def main(page: ft.Page):
                             border_radius=10,
                         ),
                         ft.Divider(height=8),
-                        result_row("رسم السنوات", rs_disp),
-                        result_row("رسم الأشهر",  ra_disp),
-                        result_row("رسم الأيام",  rd_disp),
-                        result_row("مجموع الرسوم", tr_disp),
-                        result_row("رسم الإدارة", idara_disp),
+                        result_row("رسم السنوات", v(rs)),
+                        result_row("رسم الأشهر",  v(ra)),
+                        result_row("رسم الأيام",  v(rd)),
+                        result_row("مجموع الرسوم", v(tr)),
+                        result_row("رسم الإدارة", v(idara)),
                         ft.Divider(height=12),
                         ft.Row([
                             ft.Text("المجموع الكلي", weight="bold", size=15),
@@ -1732,7 +1639,7 @@ def main(page: ft.Page):
                                     ], spacing=12),
                                     ft.Divider(height=12),
                                     result_row(f"المبلغ المدخل", safe_ceil(mablagh)),
-                                    result_row(f"الحد المعفى",   maffy),
+                                    result_row(f"الحد المعفى",   int(maffy)),
                                 ], spacing=8),
                                 padding=ft.padding.all(16),
                             ),
@@ -1743,7 +1650,7 @@ def main(page: ft.Page):
                     page.update()
                     return
 
-                tafaseel, dariba_klia = calc_arbah_brackets(mablagh, sharaeh, maffy)
+                tafaseel, dariba_klia = calc_arbah_brackets(mablagh, sharaeh)
                 rasm_idara  = safe_ceil(dariba_klia * rasm_idara_pct)
                 total_qabla = dariba_klia + rasm_idara
                 total_nihai = (safe_ceil(total_qabla / 100)
@@ -1759,7 +1666,7 @@ def main(page: ft.Page):
                     ], spacing=8),
                     ft.Divider(height=12),
                     result_row("المبلغ الكلي", safe_ceil(mablagh)),
-                    result_row("الحد المعفى",  maffy),
+                    result_row("الحد المعفى",  int(maffy)),
                 ])))
 
                 # بطاقة الشرائح
@@ -1783,7 +1690,7 @@ def main(page: ft.Page):
                                 size=12, color=None),
                             ft.Row([
                                 ft.Text("الوعاء:", size=12),
-                                ft.Text(f"{safe_ceil(sh['wia3']):,}",
+                                ft.Text(f"{int(sh['wia3']):,}",
                                         size=13, weight="bold"),
                                 ft.Container(expand=True),
                                 ft.Text("الضريبة:", size=12),
@@ -1982,22 +1889,10 @@ def main(page: ft.Page):
                                 page.update()
                                 return
                             SETTINGS[brackets_key][i] = [lower, upper, nisba]
-                            # إعادة ترتيب الشرائح تصاعدياً حسب الحد الأدنى
-                            # بعد كل تعديل، لأن دوال حساب الضريبة تفترض هذا
-                            # الترتيب. بدون هذا، تعديل شريحة واحدة بحيث
-                            # تتجاوز حدّها الأدنى شريحة مجاورة يُفسد الحساب
-                            # بصمت دون أي رسالة خطأ للمستخدم.
-                            SETTINGS[brackets_key].sort(key=lambda b: b[0])
                             save_data(SETTINGS, page)
                             save_msg.value = f"تم تعديل الشريحة {i+1} بنجاح"
                             save_msg.color = "#00695C"
                             page.update()
-                            # الترتيب الجديد قد يغيّر مواضع الشرائح على
-                            # الشاشة، فنعيد بناء المحرر بالكامل لإظهار
-                            # الشرائح بالترتيب والأرقام الصحيحة.
-                            _brackets_editor(brackets_key, exempt_key,
-                                             title, color, back_fn)
-                            return
                         except Exception as ex:
                             save_msg.value = f"خطأ: {ex}"
                             save_msg.color = "#C62828"
@@ -2095,12 +1990,6 @@ def main(page: ft.Page):
                     save_msg.color = "#E65100"
                     page.update()
                     return
-                # دوال حساب الضريبة (calc_maqtou3_tax / calc_arbah_brackets)
-                # تفترض أن الشرائح مرتبة تصاعدياً حسب الحد الأدنى (lower)
-                # وتستخدم break بناءً على هذا الترتيب. لذلك نرتّب الشرائح
-                # هنا قبل الحفظ كي يبقى الحساب صحيحاً دائماً بغض النظر عن
-                # الترتيب الذي أدخل المستخدم الشرائح به على الشاشة.
-                new_brackets.sort(key=lambda b: b[0])
                 SETTINGS[exempt_key]   = new_exempt
                 SETTINGS[brackets_key] = new_brackets
                 save_data(SETTINGS, page)
