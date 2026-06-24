@@ -105,7 +105,7 @@ jobs:
             gradle-${{ runner.os }}-
 
       - name: Build APK using Flet
-        run: python -m flet build apk --verbose
+        run: flet build apk --verbose
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
