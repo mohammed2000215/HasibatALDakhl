@@ -291,17 +291,17 @@ def make_result_card(content, color=None, elevation=2):
         return ft.Container(
             content=content,
             bgcolor=color,
-            padding=ft.padding.all(16),
+            padding=ft.Padding.all(16),
             border_radius=16,
-            margin=ft.margin.symmetric(vertical=5),
+            margin=ft.Margin.symmetric(vertical=5),
         )
     return ft.Card(
         content=ft.Container(
             content=content,
-            padding=ft.padding.all(16),
+            padding=ft.Padding.all(16),
         ),
         elevation=elevation,
-        margin=ft.margin.symmetric(vertical=5),
+        margin=ft.Margin.symmetric(vertical=5),
     )
 
 
@@ -316,7 +316,7 @@ def num_field(label, value="", hint="", width=None, icon=None, read_only=False):
         text_size=15,
         filled=True,
         read_only=read_only,
-        content_padding=ft.padding.symmetric(horizontal=14, vertical=16),
+        content_padding=ft.Padding.symmetric(horizontal=14, vertical=16),
     )
     if width:
         kwargs["width"] = width
@@ -334,7 +334,7 @@ def text_field(label, value="", hint="", width=None, icon=None):
         border_radius=14,
         text_size=15,
         filled=True,
-        content_padding=ft.padding.symmetric(horizontal=14, vertical=16),
+        content_padding=ft.Padding.symmetric(horizontal=14, vertical=16),
     )
     if width:
         kwargs["width"] = width
@@ -423,7 +423,7 @@ def main(page: ft.Page):
         color_scheme_seed="#00695C",
         use_material3=True,
     )
-    page.padding = ft.padding.only(left=16, right=16, top=0, bottom=16)
+    page.padding = ft.Padding.only(left=16, right=16, top=0, bottom=16)
     page.window.width  = 420
     page.window.height = 820
 
@@ -507,11 +507,9 @@ def main(page: ft.Page):
 
     def confirm_dialog(title, message, on_confirm):
         def close(e):
-            dlg.open = False
-            page.update()
+            page.pop_dialog()
         def confirm(e):
-            dlg.open = False
-            page.update()
+            page.pop_dialog()
             on_confirm()
         dlg = ft.AlertDialog(
             modal=True,
@@ -532,9 +530,7 @@ def main(page: ft.Page):
             actions_alignment=ft.MainAxisAlignment.END,
             shape=ft.RoundedRectangleBorder(radius=16),
         )
-        page.overlay.append(dlg)
-        dlg.open = True
-        page.update()
+        page.show_dialog(dlg)
 
     # ══════════════════════════════════════
     #  AppBar مشترك
@@ -606,7 +602,7 @@ def main(page: ft.Page):
                     on_click=handler,
                 ),
                 elevation=1,
-                margin=ft.margin.symmetric(vertical=4),
+                margin=ft.Margin.symmetric(vertical=4),
                 shape=ft.RoundedRectangleBorder(radius=16),
             )
 
@@ -628,7 +624,7 @@ def main(page: ft.Page):
                         end=ft.Alignment.BOTTOM_RIGHT,
                         colors=["#00695C", "#004D40"],
                     ),
-                    padding=ft.padding.symmetric(horizontal=24, vertical=28),
+                    padding=ft.Padding.symmetric(horizontal=24, vertical=28),
                     border_radius=20,
                     width=400,
                 ),
@@ -791,9 +787,9 @@ def main(page: ft.Page):
                             end=ft.Alignment.CENTER_RIGHT,
                             colors=["#C62828", "#B71C1C"],
                         ),
-                        padding=ft.padding.symmetric(horizontal=20, vertical=18),
+                        padding=ft.Padding.symmetric(horizontal=20, vertical=18),
                         border_radius=16,
-                        margin=ft.margin.symmetric(vertical=5),
+                        margin=ft.Margin.symmetric(vertical=5),
                     )
                 )
             page.update()
@@ -816,7 +812,7 @@ def main(page: ft.Page):
                             ft.Row([rawatib_f],
                                    alignment=ft.MainAxisAlignment.CENTER),
                         ], spacing=8),
-                        padding=ft.padding.all(16),
+                        padding=ft.Padding.all(16),
                     ),
                     elevation=1,
                     shape=ft.RoundedRectangleBorder(radius=16),
@@ -914,9 +910,9 @@ def main(page: ft.Page):
                                         weight="bold", size=14, color="white"),
                             ], spacing=8),
                             bgcolor="#00695C",
-                            padding=ft.padding.symmetric(
+                            padding=ft.Padding.symmetric(
                                 horizontal=16, vertical=10),
-                            border_radius=ft.border_radius.only(
+                            border_radius=ft.BorderRadius.only(
                                 top_left=12, top_right=12),
                         ),
                         ft.Container(
@@ -952,12 +948,12 @@ def main(page: ft.Page):
                                             color="#1565C0"),
                                 ], spacing=6),
                             ], spacing=8),
-                            padding=ft.padding.all(14),
+                            padding=ft.Padding.all(14),
                         ),
                     ], spacing=0),
                     elevation=2,
                     shape=ft.RoundedRectangleBorder(radius=12),
-                    margin=ft.margin.symmetric(vertical=6),
+                    margin=ft.Margin.symmetric(vertical=6),
                 )
                 mihna_info.visible = True
                 results_col.controls.clear()
@@ -1017,9 +1013,9 @@ def main(page: ft.Page):
                                     size=15, weight="bold",
                                     color="#E65100"),
                         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                        border=ft.border.all(1.5, "#E65100"),
+                        border=ft.Border.all(1.5, "#E65100"),
                         border_radius=10,
-                        padding=ft.padding.symmetric(horizontal=12, vertical=8),
+                        padding=ft.Padding.symmetric(horizontal=12, vertical=8),
                     ),
                 ])))
 
@@ -1056,10 +1052,10 @@ def main(page: ft.Page):
                                 ]),
                             ], spacing=4),
                             bgcolor=None,
-                            padding=ft.padding.symmetric(horizontal=12, vertical=8),
+                            padding=ft.Padding.symmetric(horizontal=12, vertical=8),
                             border_radius=10,
-                            border=ft.border.all(1, "#00695C33"),
-                            margin=ft.margin.symmetric(vertical=3),
+                            border=ft.Border.all(1, "#00695C33"),
+                            margin=ft.Margin.symmetric(vertical=3),
                         ))
                     results_col.controls.append(make_result_card(ft.Column(sh_rows)))
 
@@ -1080,9 +1076,9 @@ def main(page: ft.Page):
                             end=ft.Alignment.CENTER_RIGHT,
                             colors=["#E65100", "#BF360C"],
                         ),
-                        padding=ft.padding.symmetric(horizontal=20, vertical=18),
+                        padding=ft.Padding.symmetric(horizontal=20, vertical=18),
                         border_radius=16,
-                        margin=ft.margin.symmetric(vertical=5),
+                        margin=ft.Margin.symmetric(vertical=5),
                     )
                 )
             except Exception as ex:
@@ -1178,7 +1174,7 @@ def main(page: ft.Page):
                                     ], tight=True, spacing=0),
                                 ),
                                 elevation=1,
-                                margin=ft.margin.symmetric(vertical=3),
+                                margin=ft.Margin.symmetric(vertical=3),
                                 shape=ft.RoundedRectangleBorder(radius=14),
                             )
                         )
@@ -1243,7 +1239,7 @@ def main(page: ft.Page):
                                             icon=ft.Icons.SAVE_OUTLINED),
                                 add_msg,
                             ], spacing=10),
-                            padding=ft.padding.all(16),
+                            padding=ft.Padding.all(16),
                         ),
                         elevation=1,
                         shape=ft.RoundedRectangleBorder(radius=16),
@@ -1381,11 +1377,9 @@ def main(page: ft.Page):
             value=datetime.today(),
             on_change=on_today_date_picked,
         )
-        page.overlay.append(bond_date_picker)
-        page.overlay.append(today_date_picker)
 
-        date1_btn.on_click = lambda e: setattr(bond_date_picker,  "open", True) or page.update()
-        date2_btn.on_click = lambda e: setattr(today_date_picker, "open", True) or page.update()
+        date1_btn.on_click = lambda e: page.show_dialog(bond_date_picker)
+        date2_btn.on_click = lambda e: page.show_dialog(today_date_picker)
 
         dates_section = ft.Card(
             content=ft.Container(
@@ -1401,7 +1395,7 @@ def main(page: ft.Page):
                     date2_btn,
                     date_error,
                 ], spacing=10),
-                padding=ft.padding.all(14),
+                padding=ft.Padding.all(14),
             ),
             elevation=1,
             visible=False,
@@ -1455,7 +1449,7 @@ def main(page: ft.Page):
                         ft.Container(
                             content=ft.Text(omla_label, size=11, color="white"),
                             bgcolor="#00695C",
-                            padding=ft.padding.symmetric(horizontal=10, vertical=3),
+                            padding=ft.Padding.symmetric(horizontal=10, vertical=3),
                             border_radius=20,
                         ),
                         ft.Divider(height=12),
@@ -1514,7 +1508,7 @@ def main(page: ft.Page):
                         ft.Container(
                             content=ft.Text(omla_label, size=11, color="white"),
                             bgcolor="#00695C",
-                            padding=ft.padding.symmetric(horizontal=10, vertical=3),
+                            padding=ft.Padding.symmetric(horizontal=10, vertical=3),
                             border_radius=20,
                         ),
                         ft.Divider(height=12),
@@ -1525,7 +1519,7 @@ def main(page: ft.Page):
                                 f"المدة: {sana} سنة  /  {ashhur} شهر  /  {ayam} يوم",
                                 size=13, color=None),
                             bgcolor="#F5F5F5",
-                            padding=ft.padding.symmetric(horizontal=12, vertical=8),
+                            padding=ft.Padding.symmetric(horizontal=12, vertical=8),
                             border_radius=10,
                         ),
                         ft.Divider(height=8),
@@ -1641,7 +1635,7 @@ def main(page: ft.Page):
                                     result_row(f"المبلغ المدخل", safe_ceil(mablagh)),
                                     result_row(f"الحد المعفى",   int(maffy)),
                                 ], spacing=8),
-                                padding=ft.padding.all(16),
+                                padding=ft.Padding.all(16),
                             ),
                             elevation=2,
                             shape=ft.RoundedRectangleBorder(radius=16),
@@ -1700,10 +1694,10 @@ def main(page: ft.Page):
                             ]),
                         ], spacing=4),
                         bgcolor=None,
-                        padding=ft.padding.symmetric(horizontal=12, vertical=8),
+                        padding=ft.Padding.symmetric(horizontal=12, vertical=8),
                         border_radius=10,
-                        border=ft.border.all(1, "#1565C033"),
-                        margin=ft.margin.symmetric(vertical=3),
+                        border=ft.Border.all(1, "#1565C033"),
+                        margin=ft.Margin.symmetric(vertical=3),
                     ))
                 results_col.controls.append(make_result_card(ft.Column(sh_rows)))
 
@@ -1788,7 +1782,7 @@ def main(page: ft.Page):
                     on_click=handler,
                 ),
                 elevation=1,
-                margin=ft.margin.symmetric(vertical=4),
+                margin=ft.Margin.symmetric(vertical=4),
                 shape=ft.RoundedRectangleBorder(radius=14),
             )
 
@@ -1859,7 +1853,7 @@ def main(page: ft.Page):
                 border_radius=12,
                 filled=True,
                 text_size=14, width=95,
-                content_padding=ft.padding.symmetric(horizontal=8, vertical=14),
+                content_padding=ft.Padding.symmetric(horizontal=8, vertical=14),
             )
             nisba_f = num_field("النسبة %", value=fmt(nisba), width=85)
 
@@ -1922,7 +1916,7 @@ def main(page: ft.Page):
                             ft.Container(
                                 content=ft.Text(f"الشريحة {idx+1}", size=11, color="white", weight="bold"),
                                 bgcolor=color,
-                                padding=ft.padding.symmetric(horizontal=8, vertical=3),
+                                padding=ft.Padding.symmetric(horizontal=8, vertical=3),
                                 border_radius=20,
                             ),
                             ft.Container(expand=True),
@@ -1943,10 +1937,10 @@ def main(page: ft.Page):
                         ]),
                         ft.Row([lower_f, upper_f, nisba_f], spacing=6),
                     ], spacing=4),
-                    padding=ft.padding.symmetric(horizontal=12, vertical=8),
+                    padding=ft.Padding.symmetric(horizontal=12, vertical=8),
                 ),
                 elevation=1,
-                margin=ft.margin.symmetric(vertical=3),
+                margin=ft.Margin.symmetric(vertical=3),
                 shape=ft.RoundedRectangleBorder(radius=12),
                 data={"lower_f": lower_f, "upper_f": upper_f,
                       "nisba_f": nisba_f},
@@ -2026,7 +2020,7 @@ def main(page: ft.Page):
                             ], spacing=8),
                             exempt_f,
                         ], spacing=10),
-                        padding=ft.padding.all(14),
+                        padding=ft.Padding.all(14),
                     ),
                     elevation=1,
                     shape=ft.RoundedRectangleBorder(radius=14),
@@ -2108,7 +2102,7 @@ def main(page: ft.Page):
                                         icon=ft.Icons.SAVE_OUTLINED),
                             save_msg,
                         ], spacing=12),
-                        padding=ft.padding.all(16),
+                        padding=ft.Padding.all(16),
                     ),
                     elevation=1,
                     shape=ft.RoundedRectangleBorder(radius=16),
@@ -2177,7 +2171,7 @@ def main(page: ft.Page):
                                         icon=ft.Icons.SAVE_OUTLINED),
                             save_msg,
                         ], spacing=12),
-                        padding=ft.padding.all(16),
+                        padding=ft.Padding.all(16),
                     ),
                     elevation=1,
                     shape=ft.RoundedRectangleBorder(radius=16),
@@ -2230,7 +2224,7 @@ def main(page: ft.Page):
                             primary_btn("تعديل الشرائح", go_edit,
                                         icon=ft.Icons.EDIT_OUTLINED),
                         ], spacing=12),
-                        padding=ft.padding.all(16),
+                        padding=ft.Padding.all(16),
                     ),
                     elevation=1,
                     shape=ft.RoundedRectangleBorder(radius=16),
@@ -2308,7 +2302,7 @@ def main(page: ft.Page):
                                 on_change=lambda e: toggle_dark_mode(e),
                             ),
                         ], spacing=8),
-                        padding=ft.padding.symmetric(horizontal=16, vertical=12),
+                        padding=ft.Padding.symmetric(horizontal=16, vertical=12),
                     ),
                     elevation=1,
                     shape=ft.RoundedRectangleBorder(radius=14),
@@ -2322,7 +2316,7 @@ def main(page: ft.Page):
                                         icon=ft.Icons.SAVE_OUTLINED),
                             save_msg,
                         ], spacing=12),
-                        padding=ft.padding.all(16),
+                        padding=ft.Padding.all(16),
                     ),
                     elevation=1,
                     shape=ft.RoundedRectangleBorder(radius=16),
