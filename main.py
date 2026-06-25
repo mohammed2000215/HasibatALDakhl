@@ -424,8 +424,8 @@ def main(page: ft.Page):
         use_material3=True,
     )
     page.padding = ft.padding.only(left=16, right=16, top=0, bottom=16)
-    page.window_width  = 420
-    page.window_height = 820
+    page.window.width  = 420
+    page.window.height = 820
 
     SETTINGS = load_data(page)
 
@@ -452,8 +452,8 @@ def main(page: ft.Page):
             nav_stack[-1]()
         else:
             # إذا كنا في الصفحة الرئيسية نعرض تأكيد الخروج
-            def exit_app(ev):
-                page.window_close()
+            async def exit_app(ev):
+                await page.window.close()
             confirm_dialog(
                 "الخروج",
                 "هل تريد الخروج من التطبيق؟",
