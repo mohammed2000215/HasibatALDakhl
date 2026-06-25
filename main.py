@@ -15,6 +15,7 @@ import flet as ft
 import math
 import json
 import os
+import calendar
 from datetime import datetime, date
 
 # ══════════════════════════════════════
@@ -197,6 +198,32 @@ def safe_ceil(val):
         return math.ceil(val)
     except (TypeError, OverflowError):
         return 0
+
+
+def calendar_date_diff(d1, d2):
+    """
+    يحسب الفرق التقويمي الدقيق بين تاريخين (سنوات / أشهر / أيام)،
+    بنفس الطريقة التي يحسبها الإنسان يدوياً (طرح مباشر مع الاقتراض
+    من الشهر/السنة السابقة عند الحاجة). يتفوق هذا على طريقة
+    delta.days // 365 لأنه يأخذ بعين الاعتبار اختلاف عدد أيام
+    الشهور (28-31) والسنوات الكبيسة بدقة.
+    """
+    years  = d2.year  - d1.year
+    months = d2.month - d1.month
+    days   = d2.day   - d1.day
+
+    if days < 0:
+        months -= 1
+        prev_month = d2.month - 1 or 12
+        prev_year  = d2.year if d2.month != 1 else d2.year - 1
+        days_in_prev_month = calendar.monthrange(prev_year, prev_month)[1]
+        days += days_in_prev_month
+
+    if months < 0:
+        years  -= 1
+        months += 12
+
+    return years, months, days
 
 
 def calc_maqtou3_tax(ribh_safi, brackets, exempt):
@@ -1436,8 +1463,10 @@ def main(page: ft.Page):
                 results_col.controls.clear()
 
                 if "1year" in dur_seg.selected:
-                    idara = safe_ceil(rasm * idara_pct)
-                    total = v(safe_ceil(rasm + idara))
+                    rasm_disp  = v(rasm)
+                    idara      = safe_ceil(rasm * idara_pct)
+                    idara_disp = v(idara)
+                    total      = rasm_disp + idara_disp
 
                     rows = [
                         ft.Row([
@@ -1455,8 +1484,8 @@ def main(page: ft.Page):
                         ft.Divider(height=12),
                         result_row("قيمة السند",         safe_ceil(qima_raw)),
                         result_row(f"الفائدة ({int(SETTINGS.get('rea3_faida_pct',10))}%)", v(safe_ceil(faida))),
-                        result_row(f"الرسم ({int(SETTINGS.get('rea3_rasm_pct',10))}%)",    v(rasm)),
-                        result_row(f"رسم الإدارة ({int(SETTINGS.get('rea3_idara_pct',10))}%)", v(idara)),
+                        result_row(f"الرسم ({int(SETTINGS.get('rea3_rasm_pct',10))}%)",    rasm_disp),
+                        result_row(f"رسم الإدارة ({int(SETTINGS.get('rea3_idara_pct',10))}%)", idara_disp),
                         ft.Divider(height=12),
                         ft.Row([
                             ft.Text("المجموع الكلي", weight="bold", size=15),
@@ -1488,15 +1517,24 @@ def main(page: ft.Page):
                         return
                     date_error.visible = False
                     delta  = (d2 - d1).days
-                    sana   = delta // 365
-                    ashhur = (delta % 365) // 30
-                    ayam   = (delta % 365) % 30
-                    rs     = rasm * sana
-                    ra     = safe_ceil((rasm * ashhur) / 12)  if ashhur > 0 else 0
-                    rd     = safe_ceil((rasm * ayam)   / 365) if ayam   > 0 else 0
-                    tr     = rs + ra + rd
-                    idara  = safe_ceil(tr * idara_pct)
-                    total  = v(safe_ceil(tr + idara))
+                    sana, ashhur, ayam = calendar_date_diff(d1, d2)
+
+                    # نُقرّب كل مكوّن من الرسم بعد تحويله للعملة المطلوبة
+                    # (وليس قبل ذلك)، ثم نجمع الأرقام المقرَّبة نفسها
+                    # لحساب المجموع، لضمان أن المجموع المعروض = جمع
+                    # الأسطر المعروضة تماماً ودون أي فرق تقريب.
+                    rs_raw = rasm * sana
+                    ra_raw = (rasm * ashhur) / 12  if ashhur > 0 else 0
+                    rd_raw = (rasm * ayam)   / 365 if ayam   > 0 else 0
+
+                    rs = v(safe_ceil(rs_raw))
+                    ra = v(safe_ceil(ra_raw))
+                    rd = v(safe_ceil(rd_raw))
+                    tr = rs + ra + rd
+
+                    idara_raw = (rs_raw + ra_raw + rd_raw) * idara_pct
+                    idara = v(safe_ceil(idara_raw))
+                    total = tr + idara
 
                     rows = [
                         ft.Row([
@@ -1523,11 +1561,11 @@ def main(page: ft.Page):
                             border_radius=10,
                         ),
                         ft.Divider(height=8),
-                        result_row("رسم السنوات", v(rs)),
-                        result_row("رسم الأشهر",  v(ra)),
-                        result_row("رسم الأيام",  v(rd)),
-                        result_row("مجموع الرسوم", v(tr)),
-                        result_row("رسم الإدارة", v(idara)),
+                        result_row("رسم السنوات", rs),
+                        result_row("رسم الأشهر",  ra),
+                        result_row("رسم الأيام",  rd),
+                        result_row("مجموع الرسوم", tr),
+                        result_row("رسم الإدارة", idara),
                         ft.Divider(height=12),
                         ft.Row([
                             ft.Text("المجموع الكلي", weight="bold", size=15),
